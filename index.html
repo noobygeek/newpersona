@@ -6,6 +6,7 @@
 <title>Philos Sharma Paudel — System Administrator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root{
     --bg: #060a10;
@@ -204,6 +205,7 @@
 <script>
 console.log('%cYou found the black box.', 'color:#39ff6a;font-family:monospace;font-size:14px;');
 console.log('%cDon\'t worry. Everything is normal. Probably.', 'color:#7c8a9c;font-family:monospace;font-size:12px;');
+emailjs.init({ publicKey: "d1VtY9PHPcbI2fCIt" });
 
 const bootLines = [
   "PHILOS-FMS v3.0 — COLD & DARK",
@@ -408,12 +410,15 @@ const views = {
   atc: `
     <h1>AIR TRAFFIC CONTROL</h1>
     <p class="tag">// FREQUENCY 122.800 — STATUS OPEN</p>
-    <div class="field"><label>CALLSIGN (your name)</label><input type="text" placeholder="who's asking"></div>
-    <div class="field"><label>FREQUENCY (email)</label><input type="text" placeholder="name@example.com"></div>
-    <div class="field"><label>MESSAGE</label><textarea rows="4" placeholder="say hi, ask about infra or aviation, whatever"></textarea></div>
+    <div class="field"><label>CALLSIGN (your name)</label><input type="text" id="fromName" placeholder="who's asking"></div>
+    <div class="field"><label>FREQUENCY (email)</label><input type="text" id="fromEmail" placeholder="name@example.com"></div>
+    <div class="field"><label>MESSAGE</label><textarea rows="4" id="messagebody" placeholder="say hi, ask about infra or aviation, whatever"></textarea></div>
+    <!-- honeypot — invisible to real users, bots often fill it -->
+    <input type="text" id="hpField" name="company" autocomplete="off" tabindex="-1" style="position:absolute; left:-9999px; opacity:0;">
     <button class="clr-btn" id="transmitBtn">TRANSMIT <span class="signal-bars" id="sigBars" style="display:none;"><span></span><span></span><span></span><span></span></span></button>
-    <p class="transmit-ok" id="transmitOk">✓ message logged locally — connect a backend (Formspree/EmailJS/mailto) for this to actually send</p>
-    <p style="margin-top:1rem; color:var(--text-dim); font-size:0.8rem;">(demo form — wire to Formspree/EmailJS or a mailto: before going live)</p>
+    <!--<p class="transmit-ok" id="transmitOk">✓ message logged locally — connect a backend (Formspree/EmailJS/mailto) for this to actually send</p>-->
+    <!--<p style="margin-top:1rem; color:var(--text-dim); font-size:0.8rem;">(demo form — wire to Formspree/EmailJS or a mailto: before going live)</p>-->
+    <p class="transmit-ok" id="transmitOk"></p>
   `,
   toga: `
     <h1>TOGA — THRUST APPLIED</h1>
@@ -437,15 +442,47 @@ function wireTransmit(){
   if(!btn) return;
   const bars = document.getElementById('sigBars');
   const ok = document.getElementById('transmitOk');
+
   btn.addEventListener('click', ()=>{
+    const honeypot = document.getElementById('hpField').value;
+    if(honeypot){ return; } // silently drop — likely a bot
+
+    const name = document.getElementById('fromName').value.trim();
+    const email = document.getElementById('fromEmail').value.trim();
+    const message = document.getElementById('messageBody').value.trim();
+
+    if(!name || !email || !message){
+      ok.textContent = '⚠ fill in all fields before transmitting';
+      ok.style.color = 'var(--amber)';
+      ok.classList.add('show');
+      return;
+    }
+
     bars.style.display = 'inline-flex';
     ok.classList.remove('show');
     btn.disabled = true;
-    setTimeout(()=>{
+
+    emailjs.send('service_b0dajlf', 'template_wz869nf', {
+      from_name: name,
+      reply_to: email,
+      message: message
+    }).then(()=>{
       bars.style.display = 'none';
+      ok.textContent = '✓ message received — I\'ll get back to you soon';
+      ok.style.color = 'var(--green)';
       ok.classList.add('show');
       btn.disabled = false;
-    }, 1200);
+      document.getElementById('fromName').value = '';
+      document.getElementById('fromEmail').value = '';
+      document.getElementById('messageBody').value = '';
+    }).catch((err)=>{
+      bars.style.display = 'none';
+      ok.textContent = '✗ transmission failed — try again, or use the socials below';
+      ok.style.color = 'var(--red)';
+      ok.classList.add('show');
+      btn.disabled = false;
+      console.error('EmailJS error:', err);
+    });
   });
 }
 
